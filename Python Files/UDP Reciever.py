@@ -16,12 +16,12 @@ def Post(values):
 def HandleClient():
     while True:
         msg, addr = sSock.recvfrom(2048)
-        sHatMsg = msg.decode()
-        print(f'Message from SenseHat {addr}: "{sHatMsg}"')
-        if ('' in sHatMsg):
+        rasbMsg = msg.decode()
+        print(f'Message from SenseHat {addr}: "{rasbMsg}"')
+        if ('Dør Aktiv' not in rasbMsg):
             values = {
                 "Id" : 1,
-                "Tidspunkt" : sHatMsg
+                "Tidspunkt" : rasbMsg
             }
             print(f'SikkerhedsLog "{msg}" has been created')
             sikkerhedsLogs, resp = Post(values)
