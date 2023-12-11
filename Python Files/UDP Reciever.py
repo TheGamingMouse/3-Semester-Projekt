@@ -18,15 +18,15 @@ def HandleClient():
         msg, addr = sSock.recvfrom(2048)
         sHatMsg = msg.decode()
         print(f'Message from SenseHat {addr}: "{sHatMsg}"')
-        
-        values = {
-            "Id" : 1,
-            "Tidspunkt" : sHatMsg
-        }
-        print(f'SikkerhedsLog "{msg}" has been created')
-        sikkerhedsLogs, resp = Post(values)
-        print(resp.status_code)
-        print(resp.content)
+        if ('' in sHatMsg):
+            values = {
+                "Id" : 1,
+                "Tidspunkt" : sHatMsg
+            }
+            print(f'SikkerhedsLog "{msg}" has been created')
+            sikkerhedsLogs, resp = Post(values)
+            print(resp.status_code)
+            print(resp.content)
 
         sMsg = 'Message recieved.'
         sSock.sendto(sMsg.encode(), addr)
