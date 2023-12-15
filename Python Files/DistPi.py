@@ -1,42 +1,81 @@
-import datetime
+import RPi.GPIO as GPIO
 import time
 from socket import *
-import spidev
 
-spi = spidev.SpiDev()
-spi.open(0,0)
-spi.max_speed_hz = 1000000
+#GPIO Mode (BOARD / BCM)
+GPIO.setmode(GPIO.BCM)
+ 
+#set GPIO Pins
+GPIO_TRIGGER = 23
+GPIO_ECHO = 24
+ 
+#set GPIO direction (IN / OUT)
+GPIO.setup(GPIO_TRIGGER, GPIO.OUT)
+GPIO.setup(GPIO_ECHO, GPIO.IN)
 
-date = datetime.datetime.now()
-formDate = date.strftime("%d-%m-%Y %H:%M")
-
-sName = 'localhost'
+sName = '192.168.104.141'
 sPort = 12000
 cSock = socket(AF_INET, SOCK_DGRAM)
 
-def readChannel(channel):
-  value = spi.xfer2([1, (8 + channel) << 4,0])
-  data = ((value[1]&3) << 8) + value[2]
-  return data
+def get_ip():
+    #get host ip address
+    ip = ''
+    cSock.connect((sName,sPort))
+    ip = cSock.getsockname()[0]
+    return ip
 
-while True:
-  v = (readChannel (0) / 1023.0) * 3.3
-  dist = 16.2537 * v**4 - 129.893 * v**3 + 382.268 * v**2 - 512.611 * v + 301.439
-  print('Distance: %.2f cm' %dist)
-  time.sleep(0.05)
+def distance():
+    # set Trigger to HIGH
+    GPIO.output(GPIO_TRIGGER, True)
+ 
+    # set Trigger after 0.01ms to LOW
+    time.sleep(0.5)
+    GPIO.output(GPIO_TRIGGER, False)
+ 
+    StartTime = time.time()
+    StopTime = time.time()
+ 
+    # save StartTime
+    while GPIO.input(GPIO_ECHO) == 0:
+        StartTime = time.time()
+ 
+    # save time of arrival
+    while GPIO.input(GPIO_ECHO) == 1:
+        StopTime = time.time()
+ 
+    # time difference between start and arrival
+    TimeElapsed = StopTime - StartTime
+    # multiply with the sonic speed (34300 cm/s)
+    # and divide by 2, because there and back
+    distance = (TimeElapsed * 34300) / 2
+ 
+    return distance
 
-while True:
-  if (dist < 200):
-    if (dist <= 5):
-      cSock.sendto('Dør Aktiv'.encode(), (sName,sPort))
-      returnMsg, sAddr = cSock.recvfrom(2048)
-      print(returnMsg.decode())
-      cSock.Close()
+def init():
+    cSock = socket(AF_INET, SOCK_DGRAM)
+    print('UDP server : {}:{}'.format(get_ip(),sPort))
 
-    elif (dist < 150):
-      cSock.sendto(formDate.encode(), (sName,sPort))
-      returnMsg, sAddr = cSock.recvfrom(2048)
-      print(returnMsg.decode())
-      cSock.close()
-      
-  time.sleep(.05)
+init()
+if __name__ == '__main__':
+  try:
+    while True:
+      dist = distance()
+      print ("Measured Distance = %.1f cm" % dist)
+
+      if (dist < 200.0):
+        if (dist <=5):
+          doorMsg = 'Door Active'
+          print(doorMsg)
+          cSock.sendto(doorMsg.encode(), (sName,sPort))
+          print('Message Sent')
+          
+        elif (dist <= 150):
+          breakMsg = 'Person Entered'
+          print(breakMsg)
+          cSock.sendto(breakMsg.encode(), (sName,sPort))
+          print('Message Sent')
+          
+    # Reset by pressing CTRL + C
+  except KeyboardInterrupt:
+    print(" Measurement stopped by User")
+    GPIO.cleanup()
