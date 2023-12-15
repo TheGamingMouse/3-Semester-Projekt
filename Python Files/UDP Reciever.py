@@ -1,10 +1,11 @@
 from socket import *
 from threading import *
 import requests
+import datetime
 
-serverPort = 12000
+sPort = 12000
 sSock = socket(AF_INET, SOCK_DGRAM)
-sSock.bind(('', serverPort))
+sSock.bind(('', sPort))
 
 URL = 'http://localhost:5165/api/SikkerhedsLogs'
 
@@ -18,18 +19,19 @@ def HandleClient():
         msg, addr = sSock.recvfrom(2048)
         rasbMsg = msg.decode()
         print(f'Message from SenseHat {addr}: "{rasbMsg}"')
-        if ('Dør Aktiv' not in rasbMsg):
+        if ('Person Entered' in rasbMsg):
+            date = datetime.datetime.now()
+            formDate = date.strftime("%d-%m-%Y %H:%M")
+            print(formDate)
             values = {
                 "Id" : 1,
-                "Tidspunkt" : rasbMsg
+                "Tidspunkt" : formDate
             }
-            print(f'SikkerhedsLog "{msg}" has been created')
+            print(values)
             sikkerhedsLogs, resp = Post(values)
             print(resp.status_code)
             print(resp.content)
-
-        sMsg = 'Message recieved.'
-        sSock.sendto(sMsg.encode(), addr)
+            print(f'SikkerhedsLog "{sikkerhedsLogs}" has been created')
 
 print('The server is ready to receive')
 while True:
